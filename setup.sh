@@ -2,9 +2,8 @@
 set -eo pipefail
 
 # ====== BOOTSTRAP ======
-which curl >/dev/null || (apt-get update && apt-get install -y curl)
+apt-get update && apt-get install -y curl
 
-# Rest of script...
 # ====== DEBUGGING SETUP ======
 exec > >(tee -a /workspace/setup.log) 2>&1
 echo "====== STARTING SETUP ======"
@@ -17,8 +16,7 @@ cd "$WORKSPACE_DIR"
 
 # ====== INSTALL DEPENDENCIES ======
 echo "Installing system dependencies..."
-apt update -y
-apt install -y python3 python3-pip python3-venv sudo netcat
+apt-get install -y python3 python3-pip python3-venv sudo netcat-openbsd
 
 # ====== SERVICE CHECKS ======
 check_port() {
