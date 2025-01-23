@@ -1,74 +1,70 @@
 #!/bin/bash
-
-# Exit on error
 set -e
-
-# ====== CREATE WORKSPACE ======
+# ====== CONFIGURATION ======
 WORKSPACE_DIR=${WORKSPACE:-/workspace}
-mkdir -p $WORKSPACE_DIR
-cd $WORKSPACE_DIR
+LANGFLOW_PORT=3000
+LANGFLOW_LOG="$WORKSPACE_DIR/langflow.log"
 
-# ====== INSTALL DEPENDENCIES ======
-apt update -y
-apt install -y curl python3 python3-pip python3-venv sudo
-
-# ====== INSTALL OLLAMA ======
+# ====== UPDATE EXISTING TOOLS ======
+echo "Updating pre-installed components..."
+# Update Ollama to latest version
+echo "Updating Ollama..."
 curl -fsSL https://ollama.com/install.sh | sh
-sudo -u root nohup ollama serve > $WORKSPACE_DIR/ollama.log 2>&1 &
 
-# Wait for Ollama to start
-sleep 5
-if ! pgrep -x "ollama" > /dev/null; then
-    echo "Error: Ollama failed to start"
-    exit 1
-fi
-
-# ====== INSTALL VS CODE SERVER ======
+# Update code-server (VS Code)
+echo "Updating code-server..."
 curl -fsSL https://code-server.dev/install.sh | sh
 
-# Generate random password if not provided
-VSCODE_PASSWORD=${PASSWORD:-$(openssl rand -base64 12)}
+# ====== SETUP LANGFLOW ======
+echo "Setting up LangFlow..."
+# Create Python virtual environment
+python3 -m venv "$WORKSPACE_DIR/langflow-env"
+source "$WORKSPACE_DIR/langflow-env/bin/activate"
 
-# Start VS Code with root access and password
-sudo -u root nohup code-server \
-    --auth password \
-    --port 8080 \
-    --bind-addr 0.0.0.0 \
-    --disable-telemetry \
-    --password "$VSCODE_PASSWORD" \
-    $WORKSPACE_DIR > $WORKSPACE_DIR/vscode.log 2>&1 &
+# Install LangFlow with GPU support
+echo "Installing LangFlow..."
+pip install langflow[all]
 
-# Wait for VS Code to start
-sleep 5
-if ! curl -s http://localhost:8080 > /dev/null; then
-    echo "Error: VS Code server failed to start"
-    exit 1
-fi
-
-# ====== INSTALL LANGFLOW ======
-python3 -m venv $WORKSPACE_DIR/langflow-env
-source $WORKSPACE_DIR/langflow-env/bin/activate
-pip install langflow
-
-# Start LangFlow
+# Configure LangFlow to use existing Ollama
+echo "Starting LangFlow..."
 nohup langflow run \
     --host 0.0.0.0 \
-    --port 3000 \
+    --port "$LANGFLOW_PORT" \
     --log-level debug \
-    > $WORKSPACE_DIR/langflow.log 2>&1 &
+    > "$LANGFLOW_LOG" 2>&1 &
 
-# Wait for LangFlow to start
-sleep 10
-if ! curl -s http://localhost:3000 > /dev/null; then
-    echo "Error: LangFlow failed to start"
+# ====== VERIFY SERVICES ======
+echo "Verifying services..."
+# Check Ollama
+if ! curl -s http://localhost:11434 > /dev/null; then
+    echo "Error: Ollama not running!"
     exit 1
 fi
 
-# ====== FINALIZE PERMISSIONS ======
-chmod -R 777 $WORKSPACE_DIR
+# Check code-server
+if ! curl -s http://localhost:8080 > /dev/null; then
+    echo "Error: code-server not running!"
+    exit 1
+fi
 
+# Check LangFlow
+timeout=30
+while ! curl -s http://localhost:$LANGFLOW_PORT > /dev/null; do
+    sleep 1
+    ((timeout--))
+    if [ $timeout -eq 0 ]; then
+        echo "Error: LangFlow failed to start"
+        exit 1
+    fi
+done
+
+# ====== FINAL SETUP ======
+echo "Finalizing configuration..."
+chmod -R 775 "$WORKSPACE_DIR"
+echo "========================================"
 echo "Setup completed successfully!"
-echo "Services running on:"
-echo "- VS Code: http://localhost:8080 (Password: $VSCODE_PASSWORD)"
-echo "- LangFlow: http://localhost:3000"
-echo "- Ollama: Running locally"
+echo "Access endpoints:"
+echo "- VS Code:    http://localhost:8080"
+echo "- LangFlow:   http://localhost:$LANGFLOW_PORT"
+echo "- Ollama API: http://localhost:11434"
+echo "========================================
