@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 # ====== CONFIGURATION ======
 WORKSPACE_DIR=${WORKSPACE:-/workspace}
@@ -67,4 +67,4 @@ echo "Access endpoints:"
 echo "- VS Code:    http://localhost:8080"
 echo "- LangFlow:   http://localhost:$LANGFLOW_PORT"
 echo "- Ollama API: http://localhost:11434"
-echo "========================================
+echo "========================================"
