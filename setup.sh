@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#! /bin/bash
 set -e
 # ====== CONFIGURATION ======
 WORKSPACE_DIR=${WORKSPACE:-/workspace}
